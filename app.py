@@ -48,10 +48,10 @@ st.markdown("""
   .event-bar { border-radius:5px; background:#60a5fa; }
   .event-name { font-size:14px; font-weight:600; color:#eef4ff; overflow-wrap:anywhere; }
   .event-meta { font-size:11px; color:#9fb0c8; margin-top:4px; }
-  .event.next-event { padding:18px 0; background:rgba(96,165,250,0.08); border-radius:8px; margin-bottom:8px; border:1px solid rgba(96,165,250,0.3); }
-  .event.next-event .event-time { font-size:18px; font-weight:600; color:#fff; }
-  .event.next-event .event-name { font-size:18px; font-weight:700; }
-  .event.next-event .event-meta { font-size:13px; }
+  .event.next-event { padding:24px 0; background:rgba(96,165,250,0.08); border-radius:8px; margin-bottom:8px; border:1px solid rgba(96,165,250,0.3); }
+  .event.next-event .event-time { font-size:26px; font-weight:600; color:#fff; }
+  .event.next-event .event-name { font-size:26px; font-weight:700; }
+  .event.next-event .event-meta { font-size:18px; }
   .empty { padding:18px; border:1px dashed #33445d; border-radius:10px; color:#9fb0c8; font-size:13px; }
   iframe { border:0; border-radius:10px; }
   [data-testid="stAlert"] { border-radius:10px; }
