@@ -276,25 +276,15 @@ def clean_up_df(data: pd.DataFrame) -> pd.DataFrame:
 
 
 now = dt.datetime.now(PACIFIC)
-time_text = now.strftime("%I:%M %p").lstrip("0")
-date_text = now.strftime("%A, %B %d").replace(" 0", " ")
-
-st.markdown(
-    f"""
-    <div>
-        <div class="clock">{time_text}</div>
-        <div class="clock-date">{date_text}</div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
 # Initialize session state for calendar selection
 if "selected_calendars" not in st.session_state:
     st.session_state.selected_calendars = ["primary"]
 
 if "auto_refresh_interval" not in st.session_state:
     st.session_state.auto_refresh_interval = 60  # Default 60 seconds (1 minute)
+
+now = dt.datetime.now(PACIFIC)
+time_text = now.strftime("%I:%M %p").lstrip("0")
 
 # ---------- Settings in Modal ----------
 with st.expander("⚙️ Settings", expanded=False):
@@ -415,7 +405,7 @@ with left:
     st.caption("Calendar data is read-only. Manage or edit events in Google Calendar.")
 
 with right:
-    st.markdown('<div class="panel-title">🚆 Next Caltrain Departures</div><div class="panel-subtitle">LIVE GTFS / 511 DATA</div>', unsafe_allow_html=True)
+    st.markdown('<div class="panel-subtitle">LIVE GTFS / 511 DATA</div>', unsafe_allow_html=True)
 
     # Fetch API data
     API_RESPONSE_DATA = ping_train()
