@@ -42,12 +42,16 @@ st.markdown("""
   .panel-title { font-size:20px; font-weight:700; margin:2px 0 10px 0; color:#f4f7fc; }
   .panel-subtitle { font-size:11px; font-weight:600; letter-spacing:.09em; color:#91a4c0; margin-bottom:10px; }
   .panel { background:#111d30; border:1px solid #263750; border-radius:15px; padding:17px; min-height:540px; }
-  .event { display:grid; grid-template-columns:72px 5px 1fr; gap:11px; padding:12px 0; border-bottom:1px solid #24334a; }
+  .event { display:grid; grid-template-columns:100px 5px 1fr; gap:11px; padding:12px 0; border-bottom:1px solid #24334a; }
   .event:last-child { border-bottom:none; }
-  .event-time { font-size:12px; color:#9fb0c8; padding-top:2px; }
+  .event-time { font-size:15px; color:#9fb0c8; padding-top:2px; font-weight:500; }
   .event-bar { border-radius:5px; background:#60a5fa; }
   .event-name { font-size:14px; font-weight:600; color:#eef4ff; overflow-wrap:anywhere; }
   .event-meta { font-size:11px; color:#9fb0c8; margin-top:4px; }
+  .event.next-event { padding:18px 0; background:rgba(96,165,250,0.08); border-radius:8px; margin-bottom:8px; border:1px solid rgba(96,165,250,0.3); }
+  .event.next-event .event-time { font-size:18px; font-weight:600; color:#fff; }
+  .event.next-event .event-name { font-size:18px; font-weight:700; }
+  .event.next-event .event-meta { font-size:13px; }
   .empty { padding:18px; border:1px dashed #33445d; border-radius:10px; color:#9fb0c8; font-size:13px; }
   iframe { border:0; border-radius:10px; }
   [data-testid="stAlert"] { border-radius:10px; }
@@ -390,6 +394,7 @@ with left:
             event_html.append(f'<div class="event"><div class="event-time">All day</div><div class="event-bar" style="background:{color}"></div><div><div class="event-name">All-day events</div><div class="event-meta">{all_day_text}</div></div></div>')
         
         # Add timed events with date and time
+        first_start_time = None
         for i, (event_start, event) in enumerate(upcoming_events):
             start_text, end_text = event_time(event)
             # Add date to time display
@@ -401,7 +406,18 @@ with left:
             if location:
                 description += " · " + location
             color = ["#34d399", "#a78bfa", "#fbbf24", "#f472b6", "#60a5fa"][i % 5]
-            event_html.append(f'<div class="event"><div class="event-time">{html.escape(full_time_text)}</div><div class="event-bar" style="background:{color}"></div><div><div class="event-name">{title}</div><div class="event-meta">{html.escape(description)}</div></div></div>')
+            
+            # Mark all events with the same start time as next events
+            if start_text != "All day":
+                if first_start_time is None:
+                    first_start_time = event_start
+                is_next_event = event_start == first_start_time
+            else:
+                is_next_event = False
+            
+            event_class = "event next-event" if is_next_event else "event"
+            
+            event_html.append(f'<div class="{event_class}"><div class="event-time">{html.escape(full_time_text)}</div><div class="event-bar" style="background:{color}"></div><div><div class="event-name">{title}</div><div class="event-meta">{html.escape(description)}</div></div></div>')
         st.markdown("".join(event_html), unsafe_allow_html=True)
     st.caption("Calendar data is read-only. Manage or edit events in Google Calendar.")
 
