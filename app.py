@@ -269,7 +269,7 @@ with st.expander("⚙️ Caltrain Settings", expanded=False):
 
 left, right = st.columns([1.15, 1], gap="medium")
 with left:
-    st.markdown('<div class="panel-title">▦ Today\'s Calendar</div><div class="panel-subtitle">GOOGLE CALENDAR · LOCAL TIME</div>', unsafe_allow_html=True)
+    st.markdown('<div class="panel-title">▦ Upcoming Events</div><div class="panel-subtitle">GOOGLE CALENDAR · LOCAL TIME</div>', unsafe_allow_html=True)
     with st.spinner("Loading calendar…"):
         events, error = get_calendar_events()
     if error:
@@ -282,6 +282,7 @@ with left:
         now = dt.datetime.now(PACIFIC)
         week_later = now + dt.timedelta(days=7)
         upcoming_events = []
+        all_day_events = []
         for event in events:
             start = event.get("start", {})
             if "dateTime" in start:
@@ -289,22 +290,34 @@ with left:
                 if now <= event_start <= week_later:
                     upcoming_events.append((event_start, event))
             else:
-                # All-day events - include if today or within next week
-                upcoming_events.append((now, event))
+                # All-day events - collect separately
+                all_day_events.append(event)
         
         # Sort by start time
         upcoming_events.sort(key=lambda x: x[0])
         
         event_html = []
+        
+        # Add consolidated all-day events as a single entry
+        if all_day_events:
+            all_day_titles = [html.escape(e.get("summary", "Untitled")) for e in all_day_events]
+            all_day_text = ", ".join(all_day_titles)
+            color = "#60a5fa"
+            event_html.append(f'<div class="event"><div class="event-time">All day</div><div class="event-bar" style="background:{color}"></div><div><div class="event-name">All-day events</div><div class="event-meta">{all_day_text}</div></div></div>')
+        
+        # Add timed events with date and time
         for i, (event_start, event) in enumerate(upcoming_events):
             start_text, end_text = event_time(event)
+            # Add date to time display
+            date_str = event_start.strftime("%b %d")
+            full_time_text = f"{date_str} · {start_text}"
             title = html.escape(event.get("summary", "Untitled event"))
             location = html.escape(event.get("location", ""))
-            description = f"{start_text} – {end_text}" if start_text != "All day" else "All day event"
+            description = f"{full_time_text} – {end_text}" if start_text != "All day" else "All day event"
             if location:
                 description += " · " + location
-            color = ["#60a5fa", "#34d399", "#a78bfa", "#fbbf24", "#f472b6"][i % 5]
-            event_html.append(f'<div class="event"><div class="event-time">{html.escape(start_text)}</div><div class="event-bar" style="background:{color}"></div><div><div class="event-name">{title}</div><div class="event-meta">{html.escape(description)}</div></div></div>')
+            color = ["#34d399", "#a78bfa", "#fbbf24", "#f472b6", "#60a5fa"][i % 5]
+            event_html.append(f'<div class="event"><div class="event-time">{html.escape(full_time_text)}</div><div class="event-bar" style="background:{color}"></div><div><div class="event-name">{title}</div><div class="event-meta">{html.escape(description)}</div></div></div>')
         st.markdown("".join(event_html), unsafe_allow_html=True)
     st.caption("Calendar data is read-only. Manage or edit events in Google Calendar.")
 
