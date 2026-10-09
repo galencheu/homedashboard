@@ -397,8 +397,8 @@ with left:
         first_start_time = None
         for i, (event_start, event) in enumerate(upcoming_events):
             start_text, end_text = event_time(event)
-            # Add date to time display
-            date_str = event_start.strftime("%b %d")
+            # Add date to time display with day of week
+            date_str = event_start.strftime("%a, %b %d")
             full_time_text = f"{date_str} · {start_text}"
             title = html.escape(event.get("summary", "Untitled event"))
             location = html.escape(event.get("location", ""))
