@@ -54,7 +54,37 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-def get_calendar_events():
+@st.cache_resource(ttl="300s")
+def get_calendar_list():
+    """Fetch list of available calendars using Google Calendar OAuth credentials."""
+    credentials_path = BASE_DIR / "credentials.json"
+    token_path = BASE_DIR / "token.json"
+    if not credentials_path.exists():
+        return []
+
+    try:
+        from google.auth.transport.requests import Request
+        from google.oauth2.credentials import Credentials
+        from google_auth_oauthlib.flow import InstalledAppFlow
+        from googleapiclient.discovery import build
+
+        scopes = ["https://www.googleapis.com/auth/calendar.readonly"]
+        creds = Credentials.from_authorized_user_file(str(token_path), scopes) if token_path.exists() else None
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        if not creds or not creds.valid:
+            flow = InstalledAppFlow.from_client_secrets_file(str(credentials_path), scopes)
+            creds = flow.run_local_server(port=0, open_browser=True)
+            token_path.write_text(creds.to_json(), encoding="utf-8")
+
+        service = build("calendar", "v3", credentials=creds, cache_discovery=False)
+        result = service.calendarList().list().execute()
+        return result.get("items", [])
+    except Exception:
+        return []
+
+
+def get_calendar_events(calendar_ids=None):
     """Fetch today's events using Google Calendar OAuth credentials, if configured."""
     credentials_path = BASE_DIR / "credentials.json"
     token_path = BASE_DIR / "token.json"
@@ -80,11 +110,20 @@ def get_calendar_events():
         start = now
         end = now + dt.timedelta(days=7)
         service = build("calendar", "v3", credentials=creds, cache_discovery=False)
-        result = service.events().list(
-            calendarId="primary", timeMin=start.isoformat(), timeMax=end.isoformat(),
-            maxResults=50, singleEvents=True, orderBy="startTime"
-        ).execute()
-        return result.get("items", []), None
+        
+        all_events = []
+        
+        # Use provided calendar IDs or default to primary
+        calendars_to_fetch = calendar_ids if calendar_ids else ["primary"]
+        
+        for calendar_id in calendars_to_fetch:
+            result = service.events().list(
+                calendarId=calendar_id, timeMin=start.isoformat(), timeMax=end.isoformat(),
+                maxResults=50, singleEvents=True, orderBy="startTime"
+            ).execute()
+            all_events.extend(result.get("items", []))
+        
+        return all_events, None
     except Exception as exc:
         return None, f"Could not load Google Calendar: {exc}"
 
@@ -250,8 +289,13 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ---------- Caltrain Settings in Modal ----------
-with st.expander("⚙️ Caltrain Settings", expanded=False):
+# Initialize session state for calendar selection
+if "selected_calendars" not in st.session_state:
+    st.session_state.selected_calendars = ["primary"]
+
+# ---------- Settings in Modal ----------
+with st.expander("⚙️ Settings", expanded=False):
+    st.markdown("### Caltrain Settings")
     caltrain_stations = pd.read_csv(str(BASE_DIR / "stop_ids.csv"))
     chosen_station = st.selectbox("Choose Origin Station",
                                   caltrain_stations["stopname"], index=8)
@@ -266,17 +310,42 @@ with st.expander("⚙️ Caltrain Settings", expanded=False):
         horizontal=True,
         help="Live shows only trains that have already left the station",
     )
+    
+    st.markdown("### Calendar Settings")
+    calendar_mode = st.radio(
+        "Calendar source",
+        ["Primary only", "Select calendars"],
+        horizontal=True,
+        help="Choose which calendars to display events from",
+    )
+    
+    if calendar_mode == "Select calendars":
+        with st.spinner("Loading calendars..."):
+            calendars = get_calendar_list()
+        if calendars:
+            calendar_options = {cal["id"]: cal["summary"] for cal in calendars}
+            st.session_state.selected_calendars = st.multiselect(
+                "Select calendars to display",
+                options=list(calendar_options.keys()),
+                format_func=lambda x: calendar_options.get(x, x),
+                default=st.session_state.selected_calendars,
+            )
+        else:
+            st.warning("Could not load calendar list. Using primary calendar.")
+            st.session_state.selected_calendars = ["primary"]
+    else:
+        st.session_state.selected_calendars = ["primary"]
 
 left, right = st.columns([1.15, 1], gap="medium")
 with left:
     st.markdown('<div class="panel-title">▦ Upcoming Events</div><div class="panel-subtitle">GOOGLE CALENDAR · LOCAL TIME</div>', unsafe_allow_html=True)
     with st.spinner("Loading calendar…"):
-        events, error = get_calendar_events()
+        events, error = get_calendar_events(st.session_state.selected_calendars)
     if error:
         st.warning(error)
         st.caption("Calendar events will appear here after setup. Your transit panel can still run independently.")
     elif not events:
-        st.markdown('<div class="empty">Nothing scheduled today. Enjoy the breathing room.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="empty">Nothing scheduled in the next week. Enjoy the breathing room.</div>', unsafe_allow_html=True)
     else:
         # Filter to show only upcoming events in the next week
         now = dt.datetime.now(PACIFIC)

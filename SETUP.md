@@ -18,10 +18,12 @@ python -m pip install -r requirements.txt
 1. Open the Google Cloud Console: https://console.cloud.google.com/
 2. Create or select a project and enable **Google Calendar API**.
 3. Configure the OAuth consent screen for your account. For personal use, add your Google account as a test user if the app is in testing mode.
-4. Create an OAuth client ID of type **Desktop app** and download its JSON file.
-5. Save that file in this project folder as `credentials.json`.
-6. Start the dashboard. The first calendar load will open a Google sign-in/consent flow and create `token.json` locally.
-7. Keep `credentials.json` and `token.json` private. They are excluded from Git by `.gitignore`.
+3.1. Then go to https://console.cloud.google.com/auth/audience and add the users to the Testers list as this is not a Google Verified app.
+4. You need to enable to Google Calendar API for your Cloud Instance here: https://console.cloud.google.com/apis/library/calendar-json.googleapis.com
+5. Create an OAuth client ID of type **Desktop app** and download its JSON file.
+6. Save that file in this project folder as `credentials.json`.
+7. Start the dashboard. The first calendar load will open a Google sign-in/consent flow and create `token.json` locally.
+8. Keep `credentials.json` and `token.json` private. They are excluded from Git by `.gitignore`.
 
 The app requests read-only access to your primary calendar and fetches today's events in the America/Los_Angeles time zone.
 
