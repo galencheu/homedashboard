@@ -13,6 +13,7 @@ import pytz
 import requests
 import streamlit as st
 from geopy.distance import geodesic
+from streamlit_autorefresh import st_autorefresh
 
 BASE_DIR = Path(__file__).resolve().parent
 PACIFIC = ZoneInfo("America/Los_Angeles")
@@ -348,7 +349,7 @@ with st.expander("⚙️ Settings", expanded=False):
         st.rerun()
 
 # Set up auto-refresh
-st.autorefresh(interval=st.session_state.auto_refresh_interval * 1000, key="data_refresh")
+st_autorefresh(interval=st.session_state.auto_refresh_interval * 1000, key="data_refresh")
 
 left, right = st.columns([1.15, 1], gap="medium")
 with left:
