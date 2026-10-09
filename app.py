@@ -293,6 +293,9 @@ st.markdown(
 if "selected_calendars" not in st.session_state:
     st.session_state.selected_calendars = ["primary"]
 
+if "auto_refresh_interval" not in st.session_state:
+    st.session_state.auto_refresh_interval = 60  # Default 60 seconds (1 minute)
+
 # ---------- Settings in Modal ----------
 with st.expander("⚙️ Settings", expanded=False):
     st.markdown("### Caltrain Settings")
@@ -339,6 +342,23 @@ with st.expander("⚙️ Settings", expanded=False):
             st.session_state.selected_calendars = ["primary"]
     else:
         st.session_state.selected_calendars = ["primary"]
+    
+    st.markdown("---")
+    st.markdown("### General Settings")
+    st.session_state.auto_refresh_interval = st.number_input(
+        "Auto-refresh interval (seconds)",
+        min_value=10,
+        max_value=300,
+        value=st.session_state.auto_refresh_interval,
+        step=10,
+        help="Automatically refresh calendar and train data every N seconds"
+    )
+    
+    if st.button("🔄 Refresh Now", use_container_width=True):
+        st.rerun()
+
+# Set up auto-refresh
+st.autorefresh(interval=st.session_state.auto_refresh_interval * 1000, key="data_refresh")
 
 left, right = st.columns([1.15, 1], gap="medium")
 with left:
