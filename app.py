@@ -48,10 +48,10 @@ st.markdown("""
   .event-bar { border-radius:5px; background:#60a5fa; }
   .event-name { font-size:14px; font-weight:600; color:#eef4ff; overflow-wrap:anywhere; }
   .event-meta { font-size:11px; color:#9fb0c8; margin-top:4px; }
-  .event.next-event { padding:24px 0; background:rgba(96,165,250,0.08); border-radius:8px; margin-bottom:8px; border:1px solid rgba(96,165,250,0.3); }
-  .event.next-event .event-time { font-size:26px; font-weight:600; color:#fff; }
-  .event.next-event .event-name { font-size:26px; font-weight:700; }
-  .event.next-event .event-meta { font-size:18px; }
+  .event.next-event { padding:18px 0; background:rgba(96,165,250,0.08); border-radius:8px; margin-bottom:8px; border:1px solid rgba(96,165,250,0.3); }
+  .event.next-event .event-time { font-size:18px; font-weight:600; color:#fff; }
+  .event.next-event .event-name { font-size:23px; font-weight:700; }
+  .event.next-event .event-meta { font-size:15px; }
   .empty { padding:18px; border:1px dashed #33445d; border-radius:10px; color:#9fb0c8; font-size:13px; }
   iframe { border:0; border-radius:10px; }
   [data-testid="stAlert"] { border-radius:10px; }
@@ -397,8 +397,8 @@ with left:
         first_start_time = None
         for i, (event_start, event) in enumerate(upcoming_events):
             start_text, end_text = event_time(event)
-            # Add date to time display with day of week
-            date_str = event_start.strftime("%a, %b %d")
+            # Add date to time display
+            date_str = event_start.strftime("%b %d")
             full_time_text = f"{date_str} · {start_text}"
             title = html.escape(event.get("summary", "Untitled event"))
             location = html.escape(event.get("location", ""))
