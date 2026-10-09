@@ -77,8 +77,8 @@ def get_calendar_events():
             token_path.write_text(creds.to_json(), encoding="utf-8")
 
         now = dt.datetime.now(PACIFIC)
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        end = start + dt.timedelta(days=1)
+        start = now
+        end = now + dt.timedelta(days=7)
         service = build("calendar", "v3", credentials=creds, cache_discovery=False)
         result = service.events().list(
             calendarId="primary", timeMin=start.isoformat(), timeMax=end.isoformat(),
@@ -278,8 +278,25 @@ with left:
     elif not events:
         st.markdown('<div class="empty">Nothing scheduled today. Enjoy the breathing room.</div>', unsafe_allow_html=True)
     else:
+        # Filter to show only upcoming events in the next week
+        now = dt.datetime.now(PACIFIC)
+        week_later = now + dt.timedelta(days=7)
+        upcoming_events = []
+        for event in events:
+            start = event.get("start", {})
+            if "dateTime" in start:
+                event_start = dt.datetime.fromisoformat(start["dateTime"].replace("Z", "+00:00")).astimezone(PACIFIC)
+                if now <= event_start <= week_later:
+                    upcoming_events.append((event_start, event))
+            else:
+                # All-day events - include if today or within next week
+                upcoming_events.append((now, event))
+        
+        # Sort by start time
+        upcoming_events.sort(key=lambda x: x[0])
+        
         event_html = []
-        for i, event in enumerate(events):
+        for i, (event_start, event) in enumerate(upcoming_events):
             start_text, end_text = event_time(event)
             title = html.escape(event.get("summary", "Untitled event"))
             location = html.escape(event.get("location", ""))
