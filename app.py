@@ -373,9 +373,12 @@ with left:
         all_day_events = []
         for event in events:
             start = event.get("start", {})
+            end = event.get("end", {})
             if "dateTime" in start:
                 event_start = dt.datetime.fromisoformat(start["dateTime"].replace("Z", "+00:00")).astimezone(PACIFIC)
-                if now <= event_start <= week_later:
+                event_end = dt.datetime.fromisoformat(end["dateTime"].replace("Z", "+00:00")).astimezone(PACIFIC) if "dateTime" in end else event_start
+                # Include events that are currently happening or upcoming
+                if (event_start <= now <= event_end) or (now <= event_start <= week_later):
                     upcoming_events.append((event_start, event))
             else:
                 # All-day events - collect separately
@@ -399,16 +402,29 @@ with left:
             start_text, end_text = event_time(event)
             # Add date to time display
             date_str = event_start.strftime("%a, %b %d")
-            full_time_text = f"{date_str} · {start_text}"
             title = html.escape(event.get("summary", "Untitled event"))
             location = html.escape(event.get("location", ""))
-            description = f"{full_time_text} – {end_text}" if start_text != "All day" else "All day event"
+            
+            # Check if event is currently happening
+            end = event.get("end", {})
+            event_end = dt.datetime.fromisoformat(end["dateTime"].replace("Z", "+00:00")).astimezone(PACIFIC) if "dateTime" in end else event_start
+            is_current = event_start <= now <= event_end
+            
+            if is_current:
+                full_time_text = f"{date_str} · Now – {end_text}"
+                description = f"Now – {end_text}"
+            else:
+                full_time_text = f"{date_str} · {start_text}"
+                description = f"{full_time_text} – {end_text}" if start_text != "All day" else "All day event"
+            
             if location:
                 description += " · " + location
             color = ["#34d399", "#a78bfa", "#fbbf24", "#f472b6", "#60a5fa"][i % 5]
             
-            # Mark all events with the same start time as next events
-            if start_text != "All day":
+            # Mark currently happening events and the first upcoming event as next events
+            if is_current:
+                is_next_event = True
+            elif start_text != "All day":
                 if first_start_time is None:
                     first_start_time = event_start
                 is_next_event = event_start == first_start_time
