@@ -59,7 +59,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-@st.cache_resource(ttl="300s")
+@st.cache_resource(ttl="300s", show_spinner=False)
 def get_calendar_list():
     """Fetch list of available calendars using Google Calendar OAuth credentials."""
     credentials_path = BASE_DIR / "credentials.json"
@@ -115,22 +115,47 @@ def get_calendar_events(calendar_ids=None):
         start = now
         end = now + dt.timedelta(days=7)
         service = build("calendar", "v3", credentials=creds, cache_discovery=False)
-        
+
         all_events = []
-        
+
         # Use provided calendar IDs or default to primary
         calendars_to_fetch = calendar_ids if calendar_ids else ["primary"]
-        
+
         for calendar_id in calendars_to_fetch:
             result = service.events().list(
                 calendarId=calendar_id, timeMin=start.isoformat(), timeMax=end.isoformat(),
                 maxResults=50, singleEvents=True, orderBy="startTime"
             ).execute()
             all_events.extend(result.get("items", []))
-        
+
         return all_events, None
     except Exception as exc:
         return None, f"Could not load Google Calendar: {exc}"
+
+
+def force_reauth_calendar():
+    """Force re-authentication with Google Calendar by deleting the token file."""
+    credentials_path = BASE_DIR / "credentials.json"
+    token_path = BASE_DIR / "token.json"
+    if not credentials_path.exists():
+        return False, "Google Calendar is not configured yet. Follow SETUP.md to enable the Calendar API and add credentials.json."
+
+    try:
+        from google_auth_oauthlib.flow import InstalledAppFlow
+        from googleapiclient.discovery import build
+
+        # Delete existing token to force re-auth
+        if token_path.exists():
+            token_path.unlink()
+
+        scopes = ["https://www.googleapis.com/auth/calendar.readonly"]
+        flow = InstalledAppFlow.from_client_secrets_file(str(credentials_path), scopes)
+        creds = flow.run_local_server(port=0, open_browser=True)
+        token_path.write_text(creds.to_json(), encoding="utf-8")
+
+        return True, "Successfully re-authenticated with Google Calendar!"
+    except Exception as exc:
+        return False, f"Re-authentication failed: {exc}"
 
 
 def event_time(event):
@@ -310,13 +335,27 @@ with st.expander("⚙️ Settings", expanded=False):
     )
     
     st.markdown("### Calendar Settings")
+
+    # Show re-auth button if credentials are configured
+    credentials_path = BASE_DIR / "credentials.json"
+    if credentials_path.exists():
+        if st.button("🔑 Refresh Google Calendar Token", use_container_width=True):
+            with st.spinner("Re-authenticating with Google Calendar..."):
+                success, message = force_reauth_calendar()
+                if success:
+                    st.success(message)
+                    st.cache_resource.clear()
+                    st.rerun()
+                else:
+                    st.error(message)
+
     calendar_mode = st.radio(
         "Calendar source",
         ["Primary only", "Select calendars"],
         horizontal=True,
         help="Choose which calendars to display events from",
     )
-    
+
     if calendar_mode == "Select calendars":
         with st.spinner("Loading calendars..."):
             calendars = get_calendar_list()
