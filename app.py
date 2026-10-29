@@ -59,9 +59,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-@st.cache_resource(ttl="300s", show_spinner=False)
 def get_calendar_list():
     """Fetch list of available calendars using Google Calendar OAuth credentials."""
+    # Return early if a credential refresh is already in progress
+    if st.session_state.credential_refresh_in_progress:
+        return []
+
     credentials_path = BASE_DIR / "credentials.json"
     token_path = BASE_DIR / "token.json"
     if not credentials_path.exists():
@@ -78,19 +81,26 @@ def get_calendar_list():
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         if not creds or not creds.valid:
+            st.session_state.credential_refresh_in_progress = True
             flow = InstalledAppFlow.from_client_secrets_file(str(credentials_path), scopes)
             creds = flow.run_local_server(port=0, open_browser=True)
             token_path.write_text(creds.to_json(), encoding="utf-8")
+            st.session_state.credential_refresh_in_progress = False
 
         service = build("calendar", "v3", credentials=creds, cache_discovery=False)
         result = service.calendarList().list().execute()
         return result.get("items", [])
     except Exception:
+        st.session_state.credential_refresh_in_progress = False
         return []
 
 
 def get_calendar_events(calendar_ids=None):
     """Fetch today's events using Google Calendar OAuth credentials, if configured."""
+    # Return early if a credential refresh is already in progress
+    if st.session_state.credential_refresh_in_progress:
+        return None, "Credential refresh in progress. Please complete authentication in the popup."
+
     credentials_path = BASE_DIR / "credentials.json"
     token_path = BASE_DIR / "token.json"
     if not credentials_path.exists():
@@ -107,9 +117,11 @@ def get_calendar_events(calendar_ids=None):
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         if not creds or not creds.valid:
+            st.session_state.credential_refresh_in_progress = True
             flow = InstalledAppFlow.from_client_secrets_file(str(credentials_path), scopes)
             creds = flow.run_local_server(port=0, open_browser=True)
             token_path.write_text(creds.to_json(), encoding="utf-8")
+            st.session_state.credential_refresh_in_progress = False
 
         now = dt.datetime.now(PACIFIC)
         start = now
@@ -130,6 +142,7 @@ def get_calendar_events(calendar_ids=None):
 
         return all_events, None
     except Exception as exc:
+        st.session_state.credential_refresh_in_progress = False
         return None, f"Could not load Google Calendar: {exc}"
 
 
@@ -149,12 +162,15 @@ def force_reauth_calendar():
             token_path.unlink()
 
         scopes = ["https://www.googleapis.com/auth/calendar.readonly"]
+        st.session_state.credential_refresh_in_progress = True
         flow = InstalledAppFlow.from_client_secrets_file(str(credentials_path), scopes)
         creds = flow.run_local_server(port=0, open_browser=True)
         token_path.write_text(creds.to_json(), encoding="utf-8")
+        st.session_state.credential_refresh_in_progress = False
 
         return True, "Successfully re-authenticated with Google Calendar!"
     except Exception as exc:
+        st.session_state.credential_refresh_in_progress = False
         return False, f"Re-authentication failed: {exc}"
 
 
@@ -313,8 +329,12 @@ if "selected_calendars" not in st.session_state:
 if "auto_refresh_interval" not in st.session_state:
     st.session_state.auto_refresh_interval = 60  # Default 60 seconds (1 minute)
 
+if "credential_refresh_in_progress" not in st.session_state:
+    st.session_state.credential_refresh_in_progress = False
+
 now = dt.datetime.now(PACIFIC)
 time_text = now.strftime("%I:%M %p").lstrip("0")
+date_text = now.strftime("%a, %b %d")
 
 # ---------- Settings in Modal ----------
 with st.expander("⚙️ Settings", expanded=False):
@@ -340,8 +360,10 @@ with st.expander("⚙️ Settings", expanded=False):
     credentials_path = BASE_DIR / "credentials.json"
     if credentials_path.exists():
         if st.button("🔑 Refresh Google Calendar Token", use_container_width=True):
+            st.session_state.credential_refresh_in_progress = True
             with st.spinner("Re-authenticating with Google Calendar..."):
                 success, message = force_reauth_calendar()
+                st.session_state.credential_refresh_in_progress = False
                 if success:
                     st.success(message)
                     st.cache_resource.clear()
@@ -391,8 +413,9 @@ with st.expander("⚙️ Settings", expanded=False):
     if st.button("🔄 Refresh Now", use_container_width=True):
         st.rerun()
 
-# Set up auto-refresh
-st_autorefresh(interval=st.session_state.auto_refresh_interval * 1000, key="data_refresh")
+# Set up auto-refresh (disabled during credential refresh)
+if not st.session_state.credential_refresh_in_progress:
+    st_autorefresh(interval=st.session_state.auto_refresh_interval * 1000, key="data_refresh")
 
 left, right = st.columns([1.15, 1], gap="medium")
 with left:
@@ -501,14 +524,14 @@ with right:
             lambda c: f"{assign_train_type(c)}-{c}")
 
         # NORTHBOUND
-        st.subheader(f"Northbound Trains - {time_text}")
+        st.subheader(f"Northbound Trains - {date_text} · {time_text}")
         nb_data = caltrain_data.query("Direction == 'NB'").drop("Direction", axis=1)
         nb_data = nb_data.T
         nb_data.columns = nb_data.iloc[0]
         st.dataframe(nb_data.drop(nb_data.index[0]), use_container_width=True)
 
         # SOUTHBOUND
-        st.subheader(f"Southbound Trains - {time_text}")
+        st.subheader(f"Southbound Trains - {date_text} · {time_text}")
         sb_data = caltrain_data.query("Direction == 'SB'").drop("Direction", axis=1)
         sb_data = sb_data.T
         sb_data.columns = sb_data.iloc[0]
@@ -516,7 +539,36 @@ with right:
 
     else:
         if API_RESPONSE_DATA is False:
-            st.error("❌ Unable to fetch live Caltrain data. API may be down.")
+            st.warning("⚠️ Live API unavailable. Falling back to scheduled data from Caltrain website.")
+            # Fallback to scheduled data
+            if chosen_destination != "--" and chosen_destination != chosen_station:
+                if is_northbound(chosen_station, chosen_destination):
+                    caltrain_data = get_schedule("northbound", chosen_station, chosen_destination)
+                else:
+                    caltrain_data = get_schedule("southbound", chosen_station, chosen_destination)
+            else:
+                caltrain_data = pd.concat([
+                    get_schedule("northbound", chosen_station, chosen_destination),
+                    get_schedule("southbound", chosen_station, chosen_destination)
+                ])
+
+            caltrain_data = caltrain_data.sort_values(by=["ETA"])
+            caltrain_data["Train #"] = caltrain_data["Train #"].map(
+                lambda c: f"{assign_train_type(c)}-{c}")
+
+            # NORTHBOUND
+            st.subheader(f"Northbound Trains - {date_text} · {time_text}")
+            nb_data = caltrain_data.query("Direction == 'NB'").drop("Direction", axis=1)
+            nb_data = nb_data.T
+            nb_data.columns = nb_data.iloc[0]
+            st.dataframe(nb_data.drop(nb_data.index[0]), use_container_width=True)
+
+            # SOUTHBOUND
+            st.subheader(f"Southbound Trains - {date_text} · {time_text}")
+            sb_data = caltrain_data.query("Direction == 'SB'").drop("Direction", axis=1)
+            sb_data = sb_data.T
+            sb_data.columns = sb_data.iloc[0]
+            st.dataframe(sb_data.drop(sb_data.index[0]), use_container_width=True)
         else:
             api_live_responsetime = API_RESPONSE_DATA["Siri"]["ServiceDelivery"]["ResponseTimestamp"]
             api_live_responsetime_dt = dt.datetime.strptime(api_live_responsetime, '%Y-%m-%dT%H:%M:%SZ') \
@@ -578,7 +630,7 @@ with right:
                     caltrain_data = caltrain_data.query("direction == 'SB'")
 
             # NORTHBOUND
-            st.subheader(f"Northbound Trains - {time_text}")
+            st.subheader(f"Northbound Trains - {date_text} · {time_text}")
             nb_trains = caltrain_data.query("Direction == 'NB'").drop("Direction", axis=1)
             nb_trains = nb_trains[nb_trains["stopname"] == chosen_station].sort_values("ETA")
 
@@ -588,7 +640,7 @@ with right:
                 st.dataframe(clean_up_df(nb_trains), use_container_width=True)
 
             # SOUTHBOUND
-            st.subheader(f"Southbound Trains - {time_text}")
+            st.subheader(f"Southbound Trains - {date_text} · {time_text}")
             sb_trains = caltrain_data.query("direction == 'SB'").drop("direction", axis=1)
             sb_trains = sb_trains[sb_trains["stopname"] == chosen_station].sort_values("ETA")
 
