@@ -483,13 +483,13 @@ with left:
                 description += " · " + location
             color = ["#34d399", "#a78bfa", "#fbbf24", "#f472b6", "#60a5fa"][i % 5]
             
-            # Mark currently happening events and the first upcoming event as next events
+            # Mark currently happening events and the first upcoming event as next events (only if same day)
             if is_current:
                 is_next_event = True
             elif start_text != "All day":
                 if first_start_time is None:
                     first_start_time = event_start
-                is_next_event = event_start == first_start_time
+                is_next_event = event_start == first_start_time and event_start.date() == now.date()
             else:
                 is_next_event = False
             
