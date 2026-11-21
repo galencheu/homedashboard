@@ -396,6 +396,9 @@ with st.expander("⚙️ Settings", expanded=False):
                 format_func=lambda x: calendar_options.get(x, x),
                 default=valid_defaults,
             )
+            # Ensure primary is always included in the final selection
+            if "primary" in calendar_options and "primary" not in st.session_state.selected_calendars:
+                st.session_state.selected_calendars.append("primary")
         else:
             st.warning("Could not load calendar list. Using primary calendar.")
             st.session_state.selected_calendars = ["primary"]
