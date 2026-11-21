@@ -375,15 +375,22 @@ with st.expander("⚙️ Settings", expanded=False):
         calendars = get_calendar_list()
     if calendars:
         calendar_options = {cal["id"]: cal["summary"] for cal in calendars}
+        # Find the actual primary calendar ID
+        primary_id = None
+        for cal in calendars:
+            if cal.get("primary") or cal.get("id") == "primary":
+                primary_id = cal["id"]
+                break
+
         # Filter default to only include valid calendar IDs
         valid_defaults = [cal_id for cal_id in st.session_state.selected_calendars if cal_id in calendar_options]
         # Ensure primary is always in the defaults
-        if "primary" in calendar_options and "primary" not in valid_defaults:
-            valid_defaults.append("primary")
+        if primary_id and primary_id not in valid_defaults:
+            valid_defaults.append(primary_id)
         if not valid_defaults:
-            valid_defaults = ["primary"] if "primary" in calendar_options else [list(calendar_options.keys())[0]]
+            valid_defaults = [primary_id] if primary_id else [list(calendar_options.keys())[0]]
 
-        # Get user selection (without primary if they deselected it)
+        # Get user selection
         selected = st.multiselect(
             "Select calendars to display",
             options=list(calendar_options.keys()),
@@ -392,9 +399,9 @@ with st.expander("⚙️ Settings", expanded=False):
         )
 
         # Always include primary in the final selection
-        if "primary" in calendar_options:
-            if "primary" not in selected:
-                selected.append("primary")
+        if primary_id:
+            if primary_id not in selected:
+                selected.append(primary_id)
             st.session_state.selected_calendars = selected
         else:
             st.session_state.selected_calendars = selected
