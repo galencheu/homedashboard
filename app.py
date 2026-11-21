@@ -371,38 +371,28 @@ with st.expander("⚙️ Settings", expanded=False):
                 else:
                     st.error(message)
 
-    calendar_mode = st.radio(
-        "Calendar source",
-        ["Primary only", "Select calendars"],
-        horizontal=True,
-        help="Choose which calendars to display events from",
-    )
-
-    if calendar_mode == "Select calendars":
-        with st.spinner("Loading calendars..."):
-            calendars = get_calendar_list()
-        if calendars:
-            calendar_options = {cal["id"]: cal["summary"] for cal in calendars}
-            # Filter default to only include valid calendar IDs, and always include primary
-            valid_defaults = [cal_id for cal_id in st.session_state.selected_calendars if cal_id in calendar_options]
-            # Ensure primary is always in the defaults
-            if "primary" in calendar_options and "primary" not in valid_defaults:
-                valid_defaults.append("primary")
-            if not valid_defaults:
-                valid_defaults = ["primary"] if "primary" in calendar_options else [list(calendar_options.keys())[0]]
-            st.session_state.selected_calendars = st.multiselect(
-                "Select calendars to display",
-                options=list(calendar_options.keys()),
-                format_func=lambda x: calendar_options.get(x, x),
-                default=valid_defaults,
-            )
-            # Ensure primary is always included in the final selection
-            if "primary" in calendar_options and "primary" not in st.session_state.selected_calendars:
-                st.session_state.selected_calendars.append("primary")
-        else:
-            st.warning("Could not load calendar list. Using primary calendar.")
-            st.session_state.selected_calendars = ["primary"]
+    with st.spinner("Loading calendars..."):
+        calendars = get_calendar_list()
+    if calendars:
+        calendar_options = {cal["id"]: cal["summary"] for cal in calendars}
+        # Filter default to only include valid calendar IDs, and always include primary
+        valid_defaults = [cal_id for cal_id in st.session_state.selected_calendars if cal_id in calendar_options]
+        # Ensure primary is always in the defaults
+        if "primary" in calendar_options and "primary" not in valid_defaults:
+            valid_defaults.append("primary")
+        if not valid_defaults:
+            valid_defaults = ["primary"] if "primary" in calendar_options else [list(calendar_options.keys())[0]]
+        st.session_state.selected_calendars = st.multiselect(
+            "Select calendars to display",
+            options=list(calendar_options.keys()),
+            format_func=lambda x: calendar_options.get(x, x),
+            default=valid_defaults,
+        )
+        # Ensure primary is always included in the final selection
+        if "primary" in calendar_options and "primary" not in st.session_state.selected_calendars:
+            st.session_state.selected_calendars.append("primary")
     else:
+        st.warning("Could not load calendar list. Using primary calendar.")
         st.session_state.selected_calendars = ["primary"]
     
     st.markdown("---")
