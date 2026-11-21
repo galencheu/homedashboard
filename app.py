@@ -383,10 +383,13 @@ with st.expander("⚙️ Settings", expanded=False):
             calendars = get_calendar_list()
         if calendars:
             calendar_options = {cal["id"]: cal["summary"] for cal in calendars}
-            # Filter default to only include valid calendar IDs
+            # Filter default to only include valid calendar IDs, and always include primary
             valid_defaults = [cal_id for cal_id in st.session_state.selected_calendars if cal_id in calendar_options]
+            # Ensure primary is always in the defaults
+            if "primary" in calendar_options and "primary" not in valid_defaults:
+                valid_defaults.append("primary")
             if not valid_defaults:
-                valid_defaults = [list(calendar_options.keys())[0]] if calendar_options else ["primary"]
+                valid_defaults = ["primary"] if "primary" in calendar_options else [list(calendar_options.keys())[0]]
             st.session_state.selected_calendars = st.multiselect(
                 "Select calendars to display",
                 options=list(calendar_options.keys()),
