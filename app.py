@@ -335,7 +335,10 @@ def style_caltrain_table(data: pd.DataFrame):
         match = re.search(r"Train in (-?\d+) min", str(value))
         if not match:
             return ""
-        if int(match.group(1)) <= 8:
+        minutes = int(match.group(1))
+        if minutes < 4:
+            return "background-color: #dc2626; color: #ffffff; font-weight: 700;"
+        if minutes <= 8:
             return "background-color: #facc15; color: #111827; font-weight: 700;"
         return "background-color: #22c55e; color: #ffffff; font-weight: 700;"
 
