@@ -4,6 +4,7 @@ import datetime as dt
 import html
 import json
 import os
+import re
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -321,17 +322,38 @@ def clean_up_df(data: pd.DataFrame) -> pd.DataFrame:
     return data
 
 
+def apply_cell_style(table, style_func, subset):
+    if hasattr(table, "map"):
+        return table.map(style_func, subset=subset)
+    return table.applymap(style_func, subset=subset)
+
+
 def style_caltrain_table(data: pd.DataFrame):
     table = clean_up_df(data).style
-    style_delayed_cell = lambda value: (
-        "background-color: #dc2626; color: #ffffff; font-weight: 700;"
-        if str(value).startswith("!!!!")
-        else ""
-    )
 
-    if hasattr(table, "map"):
-        return table.map(style_delayed_cell, subset=pd.IndexSlice["Delayed", :])
-    return table.applymap(style_delayed_cell, subset=pd.IndexSlice["Delayed", :])
+    def style_api_arrival_cell(value):
+        match = re.search(r"Train in (-?\d+) min", str(value))
+        if not match:
+            return ""
+        if int(match.group(1)) <= 8:
+            return "background-color: #facc15; color: #111827; font-weight: 700;"
+        return "background-color: #22c55e; color: #ffffff; font-weight: 700;"
+
+    def style_delayed_cell(value):
+        if str(value).startswith("!!!!"):
+            return "background-color: #dc2626; color: #ffffff; font-weight: 700;"
+        return ""
+
+    table = apply_cell_style(
+        table,
+        style_api_arrival_cell,
+        pd.IndexSlice["API Arrival", :],
+    )
+    return apply_cell_style(
+        table,
+        style_delayed_cell,
+        pd.IndexSlice["Delayed", :],
+    )
 
 
 now = dt.datetime.now(PACIFIC)
