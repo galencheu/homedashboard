@@ -321,6 +321,19 @@ def clean_up_df(data: pd.DataFrame) -> pd.DataFrame:
     return data
 
 
+def style_caltrain_table(data: pd.DataFrame):
+    table = clean_up_df(data).style
+    style_delayed_cell = lambda value: (
+        "background-color: #dc2626; color: #ffffff; font-weight: 700;"
+        if str(value).startswith("!!!!")
+        else ""
+    )
+
+    if hasattr(table, "map"):
+        return table.map(style_delayed_cell, subset=pd.IndexSlice["Delayed", :])
+    return table.applymap(style_delayed_cell, subset=pd.IndexSlice["Delayed", :])
+
+
 now = dt.datetime.now(PACIFIC)
 # Initialize session state for calendar selection
 if "selected_calendars" not in st.session_state:
@@ -647,7 +660,7 @@ with right:
             if nb_trains.empty:
                 st.info("No trains northbound.")
             else:
-                st.dataframe(clean_up_df(nb_trains), use_container_width=True)
+                st.dataframe(style_caltrain_table(nb_trains), use_container_width=True)
 
             # SOUTHBOUND
             st.subheader(f"Southbound Trains - {date_text} · {time_text}")
@@ -657,6 +670,6 @@ with right:
             if sb_trains.empty:
                 st.info("No trains southbound.")
             else:
-                st.dataframe(clean_up_df(sb_trains), use_container_width=True)
+                st.dataframe(style_caltrain_table(sb_trains), use_container_width=True)
 
 st.markdown("<div style='text-align:center;color:#64748b;font-size:11px;margin-top:12px'>Local dashboard · Calendar refreshes when the page reruns · Transit refresh follows your existing app</div>", unsafe_allow_html=True)
