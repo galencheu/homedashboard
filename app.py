@@ -336,9 +336,9 @@ def style_caltrain_table(data: pd.DataFrame):
         if not match:
             return ""
         minutes = int(match.group(1))
-        if minutes < 4:
+        if minutes < 6:
             return "background-color: #dc2626; color: #ffffff; font-weight: 700;"
-        if minutes <= 8:
+        if minutes <= 9:
             return "background-color: #facc15; color: #111827; font-weight: 700;"
         return "background-color: #22c55e; color: #ffffff; font-weight: 700;"
 
