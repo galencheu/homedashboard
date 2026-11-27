@@ -197,6 +197,23 @@ def all_day_event_dates(event):
     return start_date, end_date
 
 
+def calendar_event_key(event):
+    start = event.get("start", {})
+    end = event.get("end", {})
+    summary = str(event.get("summary", "Untitled event")).strip().casefold()
+
+    if "dateTime" in start:
+        start_dt = dt.datetime.fromisoformat(start["dateTime"].replace("Z", "+00:00")).astimezone(PACIFIC)
+        end_value = end.get("dateTime")
+        end_dt = dt.datetime.fromisoformat(end_value.replace("Z", "+00:00")).astimezone(PACIFIC) if end_value else start_dt
+        return "timed", summary, start_dt, end_dt
+
+    try:
+        return "all-day", summary, *all_day_event_dates(event)
+    except (KeyError, TypeError, ValueError):
+        return "all-day", summary, start.get("date", ""), end.get("date", "")
+
+
 # ---------- Caltrain Functions ----------
 @st.cache_resource(ttl="60s")
 def ping_train() -> dict:
@@ -487,6 +504,15 @@ with left:
     elif not events:
         st.markdown('<div class="empty">Nothing scheduled in the next week. Enjoy the breathing room.</div>', unsafe_allow_html=True)
     else:
+        unique_events = []
+        seen_event_keys = set()
+        for event in events:
+            key = calendar_event_key(event)
+            if key not in seen_event_keys:
+                seen_event_keys.add(key)
+                unique_events.append(event)
+        events = unique_events
+
         # Filter to show only upcoming events in the next week
         now = dt.datetime.now(PACIFIC)
         week_later = now + dt.timedelta(days=7)
