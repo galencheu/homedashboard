@@ -186,6 +186,17 @@ def event_time(event):
     return start_dt.strftime("%-I:%M %p"), end_dt.strftime("%-I:%M %p")
 
 
+def all_day_event_dates(event):
+    start = event.get("start", {})
+    end = event.get("end", {})
+    start_date = dt.date.fromisoformat(start["date"])
+    end_value = end.get("date")
+    end_date = dt.date.fromisoformat(end_value) if end_value else start_date + dt.timedelta(days=1)
+    if end_date <= start_date:
+        end_date = start_date + dt.timedelta(days=1)
+    return start_date, end_date
+
+
 # ---------- Caltrain Functions ----------
 @st.cache_resource(ttl="60s")
 def ping_train() -> dict:
@@ -496,16 +507,36 @@ with left:
         
         # Sort by start time
         upcoming_events.sort(key=lambda x: x[0])
-        
+
+        today = now.date()
+        tomorrow = today + dt.timedelta(days=1)
+        all_day_events_by_day = {today: [], tomorrow: []}
+
+        for event in all_day_events:
+            try:
+                start_date, end_date = all_day_event_dates(event)
+            except (KeyError, TypeError, ValueError):
+                continue
+            for day in (today, tomorrow):
+                if start_date <= day < end_date:
+                    all_day_events_by_day[day].append(event)
+
+        for day_events in all_day_events_by_day.values():
+            day_events.sort(key=lambda e: e.get("start", {}).get("date", ""))
+
         event_html = []
-        
-        # Add consolidated all-day events as a single entry
-        if all_day_events:
-            all_day_titles = [html.escape(e.get("summary", "Untitled")) for e in all_day_events]
+
+        for day, label, bold in ((today, "Today", True), (tomorrow, "Tomorrow", False)):
+            day_events = all_day_events_by_day[day]
+            if not day_events:
+                continue
+            all_day_titles = [html.escape(e.get("summary", "Untitled")) for e in day_events]
+            if bold:
+                all_day_titles = [f"<strong>{title}</strong>" for title in all_day_titles]
             all_day_text = ", ".join(all_day_titles)
             color = "#60a5fa"
-            event_html.append(f'<div class="event"><div class="event-time">All day</div><div class="event-bar" style="background:{color}"></div><div><div class="event-name">All-day events</div><div class="event-meta">{all_day_text}</div></div></div>')
-        
+            event_html.append(f'<div class="event"><div class="event-time">{label}</div><div class="event-bar" style="background:{color}"></div><div><div class="event-name">All-day events</div><div class="event-meta">{all_day_text}</div></div></div>')
+
         # Add timed events with date and time
         first_start_time = None
         for i, (event_start, event) in enumerate(upcoming_events):
