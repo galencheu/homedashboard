@@ -552,16 +552,24 @@ with left:
 
         event_html = []
 
-        for day, label, bold in ((today, "Today", True), (tomorrow, "Tomorrow", False)):
-            day_events = all_day_events_by_day[day]
-            if not day_events:
-                continue
-            all_day_titles = [html.escape(e.get("summary", "Untitled")) for e in day_events]
-            if bold:
-                all_day_titles = [f"<strong>{title}</strong>" for title in all_day_titles]
-            all_day_text = ", ".join(all_day_titles)
+        all_day_sections = []
+        if all_day_events_by_day[today]:
+            today_titles = [
+                f"<strong>{html.escape(e.get('summary', 'Untitled'))}</strong>"
+                for e in all_day_events_by_day[today]
+            ]
+            all_day_sections.append(f"Today: {', '.join(today_titles)}")
+        if all_day_events_by_day[tomorrow]:
+            tomorrow_titles = [
+                html.escape(e.get("summary", "Untitled"))
+                for e in all_day_events_by_day[tomorrow]
+            ]
+            all_day_sections.append(f"Tomorrow: {', '.join(tomorrow_titles)}")
+
+        if all_day_sections:
             color = "#60a5fa"
-            event_html.append(f'<div class="event"><div class="event-time">{label}</div><div class="event-bar" style="background:{color}"></div><div><div class="event-name">All-day events</div><div class="event-meta">{all_day_text}</div></div></div>')
+            all_day_text = "<br>".join(all_day_sections)
+            event_html.append(f'<div class="event"><div class="event-time">All day</div><div class="event-bar" style="background:{color}"></div><div><div class="event-name">All-day events</div><div class="event-meta">{all_day_text}</div></div></div>')
 
         # Add timed events with date and time
         first_start_time = None
